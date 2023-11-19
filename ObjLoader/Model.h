@@ -7,32 +7,32 @@
 #include <glm/glm.hpp>
 #include <GL/freeglut.h>
 #include <cmath>
+#include <soil.h>
 class Model{
 private:
 
-   
     std::vector< glm::vec3 > v;
     std::vector< glm::vec2 > vt;
     std::vector< glm::vec3 > vn;
-    std::vector< glm::vec3> f;
-
-public:
+    
     std::vector< glm::uvec3> vertexIndices;
     std::vector< glm::uvec3> uvIndices;
     std::vector< glm::uvec3> normalIndices;
+    
+    std::vector<GLfloat> vertices;
+    std::vector<GLfloat> normals;
+    std::vector<GLfloat> texCoords;
 
-    std::vector<glm::vec3> vertex;
-    std::vector<float> uv;
-    std::vector<unsigned int> normal;
-	Model() {
+    std::string mltName="";
+    GLuint textureID;
 
-	}
+public:
 
-	void loadFile(std::string path) {
+	void loadFile(std::string fileName) {
 
         std::string myText;
 
-        std::ifstream MyReadFile("ex2.obj");
+        std::ifstream MyReadFile("model/"+ fileName);
 
         while (getline(MyReadFile, myText)) {
             
@@ -40,84 +40,112 @@ public:
         }
         MyReadFile.close();
 
-        for (int i = 0; i < f.size(); i++)
-        {
-            vertex.push_back(glm::vec3(v[f[i].x-1].x, v[f[i].x - 1].y, v[f[i].x - 1].z));
-           /*
-
-            uv.push_back(vt[f[i].y - 1].x);
-            uv.push_back(vt[f[i].y - 1].y);
-
-            normal.push_back(v[f[i].z - 1].x);
-            normal.push_back(v[f[i].z - 1].y);
-            normal.push_back(v[f[i].z - 1].z);*/
-        }
+        procesData();
+        loadTexture();
 
 	}
     void render() {
         glPushMatrix();
-        glBegin(GL_TRIANGLES);
-        for (int i = 0; i < vertex.size(); i++)
-        {
-            glNormal3f(vn[f[i].z - 1].x, vn[f[i].z - 1].y, vn[f[i].z - 1].z);
-            glColor3f(1.0f, 0.0f, 0.0f);
-            glVertex3f(vertex[i].x, vertex[i].y, vertex[i].z);
-        }
-        
 
+        glBindTexture(GL_TEXTURE_2D, textureID);
+
+        glBegin(GL_TRIANGLES);
+        for (int i = 0; i < vertices.size(); i+=3)
+        {   
+            glTexCoord2f(texCoords[i], texCoords[i+1]);
+            glNormal3f(normals[i], normals[i+1], normals[i+2]);
+            glVertex3f(vertices[i], vertices[i+1], vertices[i+2]);
+            
+        }
+      
         glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
         glPopMatrix();
+
     }
 
 
 private:
-   /* void readFromLine(std::string line)
-    {
-        std::istringstream stream(line);
-        std::string token;
-        float x, y, z;
-        stream >> token;
-        if (stream.fail()) {
-            std::cerr << "B³¹d odczytu ." << std::endl;
-        }
-        else if (token == "v") {
-            stream >> x >> y >> z;
-            vert.push_back(x);
-            vert.push_back(y);
-            vert.push_back(z);
-        }
-        else if (token == "vn")
+    void procesData() {
+        for (int i = 0; i < vertexIndices.size(); i++)
         {
-            stream >> x >> y >> z;
-            norm.push_back(x);
-            norm.push_back(y);
-            norm.push_back(z);
-        }
-        else if (token == "vt")
-        {
-            stream >> x >> y;
-            text.push_back(x);
-            text.push_back(y);
-        }
-        else if (token == "f")
-        {
-            unsigned int vIndex, tIndex, nIndex;
-            char slash;
+            /// vertices
+            vertices.push_back(v[vertexIndices[i].x - 1].x);
+            vertices.push_back(v[vertexIndices[i].x - 1].y);
+            vertices.push_back(v[vertexIndices[i].x - 1].z);
 
-            for (int i = 0; i < 4; i++) {
-                stream >> vIndex >> slash >> tIndex >> slash >> nIndex;
-                if (!stream.fail()) {
-                    indices.push_back(vIndex);
-                    indices.push_back(tIndex);
-                    indices.push_back(nIndex);
+
+            vertices.push_back(v[vertexIndices[i].y - 1].x);
+            vertices.push_back(v[vertexIndices[i].y - 1].y);
+            vertices.push_back(v[vertexIndices[i].y - 1].z);
+
+            vertices.push_back(v[vertexIndices[i].z - 1].x);
+            vertices.push_back(v[vertexIndices[i].z - 1].y);
+            vertices.push_back(v[vertexIndices[i].z - 1].z);
+
+            /// texCords
+            texCoords.push_back(vt[uvIndices[i].x - 1].x);
+            texCoords.push_back(vt[uvIndices[i].x - 1].y);
+            texCoords.push_back(0);
+
+            texCoords.push_back(vt[uvIndices[i].y - 1].x);
+            texCoords.push_back(vt[uvIndices[i].y - 1].y);
+            texCoords.push_back(0);
+
+            texCoords.push_back(vt[uvIndices[i].z - 1].x);
+            texCoords.push_back(vt[uvIndices[i].z - 1].y);
+            texCoords.push_back(0);
+            
+
+            /// normals
+            normals.push_back(vn[normalIndices[i].x - 1].x);
+            normals.push_back(vn[normalIndices[i].x - 1].y);
+            normals.push_back(vn[normalIndices[i].x - 1].z);
+
+            normals.push_back(vn[normalIndices[i].y - 1].x);
+            normals.push_back(vn[normalIndices[i].y - 1].y);
+            normals.push_back(vn[normalIndices[i].y - 1].z);
+
+            normals.push_back(vn[normalIndices[i].z - 1].x);
+            normals.push_back(vn[normalIndices[i].z - 1].y);
+            normals.push_back(vn[normalIndices[i].z - 1].z);
+           
+        }
+    }
+    void loadTexture()
+    {
+        if (mltName != "")
+        {
+            std::string mltText;
+            std::ifstream mltReader("model/" + mltName);
+            while (getline(mltReader, mltText))
+            {
+                std::istringstream stream(mltText);
+                std::string token;
+                stream >> token;
+                if (token == "map_Kd")
+                {
+                    glGenTextures(1, &textureID);
+                    glBindTexture(GL_TEXTURE_2D, textureID);
+                    stream >> token;
+                    int width, height, channels;
+                    
+                    textureID = SOIL_load_OGL_texture(
+                        token.c_str(),
+                        SOIL_LOAD_AUTO,
+                        SOIL_CREATE_NEW_ID,
+                        SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+                    );
+
+                    if (textureID == 0) {
+                        printf("Error loading texture: %s\n", SOIL_last_result());
+                    }  
                 }
             }
+            mltReader.close();
         }
-        else {
-            std::cerr << "Uszkodzony plik." << std::endl;
-        }
+    }
 
-    }*/
     void newReadFromLine(std::string line)
     {
         std::istringstream stream(line);
@@ -154,19 +182,14 @@ private:
                         vertexIndex.y >> slash >> uvIndex.y >> slash >> normalIndex.y >> 
                         vertexIndex.z >> slash >> uvIndex.z >> slash >> normalIndex.z;
             
-            vertexIndices.push_back(vertexIndex);
-            uvIndices.push_back(uvIndex);
-            normalIndices.push_back(normalIndex);
-            f.push_back(glm::uvec3(vertexIndex.x, uvIndex.x, normalIndex.x));
-            f.push_back(glm::uvec3(vertexIndex.y, uvIndex.y, normalIndex.y));
-            f.push_back(glm::uvec3(vertexIndex.z, uvIndex.z, normalIndex.z));
+            vertexIndices.push_back(glm::uvec3(vertexIndex.x, vertexIndex.y, vertexIndex.z));
+            uvIndices.push_back(glm::uvec3(uvIndex.x, uvIndex.y, uvIndex.z));
+            normalIndices.push_back(glm::uvec3(normalIndex.x, normalIndex.y, normalIndex.z));
 
         }
-        else {
-            std::cerr << "Uszkodzony plik." << std::endl;
+        else if (token == "mtllib")
+        {
+            stream >> mltName;
         }
-
-    }
-    
-    
+    } 
 };
