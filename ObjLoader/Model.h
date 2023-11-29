@@ -8,23 +8,22 @@
 #include <GL/freeglut.h>
 #include <cmath>
 #include <soil.h>
+#include "Face.h"
 class Model{
 private:
+    std::vector< GLint> vertexIndices;
+    std::vector< GLint> uvIndices;
+    std::vector< GLint> normalIndices;
 
-    std::vector< glm::vec3 > v;
-    std::vector< glm::vec2 > vt;
-    std::vector< glm::vec3 > vn;
+    std::vector<GLfloat*> vertices;
+    std::vector<GLfloat*> normals;
+    std::vector<GLfloat*> texCoords;
     
-    std::vector< glm::uvec3> vertexIndices;
-    std::vector< glm::uvec3> uvIndices;
-    std::vector< glm::uvec3> normalIndices;
-    
-    std::vector<GLfloat> vertices;
-    std::vector<GLfloat> normals;
-    std::vector<GLfloat> texCoords;
-
     std::string mltName="";
     GLuint textureID;
+    
+    std::vector<Face> faces;
+    GLuint list;
 
 public:
 
@@ -39,79 +38,77 @@ public:
             newReadFromLine(myText);
         }
         MyReadFile.close();
+        std::cout << "Vertices:" << vertices.size()<<std::endl;
+        std::cout << "Texcords:" << texCoords.size() << std::endl;
+        std::cout << "Normals:" << normals.size() << std::endl;
+        std::cout << "Faces:" << faces.size() << std::endl;
+        list = glGenLists(1);
+        glNewList(list, GL_COMPILE);
+        for (Face& face : faces)
+        {
+            if (face.normal != -1)
+            {
+                glNormal3fv(normals[face.normal]);
+            }
+            else
+            {
+                glDisable(GL_LIGHTING);
+            }
+            if (textureID != 0)
+            {
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, textureID);
+                glBegin(GL_POLYGON);
+                for (int i = 0; i < face.edge; i++)
+                {
+                    if (face.texCords[i] != -1)
+                    {
+                        glTexCoord2fv(texCoords[face.texCords[i]]);
+                    }
+                    glVertex3fv(vertices[face.vertices[i]]);
+                }
+                glEnd();
+                           
+            }
+            else{
+                glBegin(GL_POLYGON);
+                for (int i = 0; i < face.edge; i++)
+                {
 
-        procesData();
-        loadTexture();
+                    glVertex3fv(vertices[face.vertices[i]]);
+                }
+                glEnd();
+            }
+            if (face.normal == -1)
+                glEnable(GL_LIGHTING);
+        }
+        glEndList();
+
+       
+
+        for (GLfloat* f : vertices)
+            delete f;
+        vertices.clear();
+
+        for (GLfloat* f : texCoords)
+            delete f;
+        texCoords.clear();
+
+        for (GLfloat* f : normals)
+            delete f;
+        normals.clear();
+
+        
 
 	}
-    void render() {
-        glPushMatrix();
 
-        glBindTexture(GL_TEXTURE_2D, textureID);
-
-        glBegin(GL_TRIANGLES);
-        for (int i = 0; i < vertices.size(); i+=3)
-        {   
-            glTexCoord2f(texCoords[i], texCoords[i+1]);
-            glNormal3f(normals[i], normals[i+1], normals[i+2]);
-            glVertex3f(vertices[i], vertices[i+1], vertices[i+2]);
-            
-        }
-      
-        glEnd();
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glPopMatrix();
-
+    void draw() {
+        glCallList(list);
     }
-
 
 private:
-    void procesData() {
-        for (int i = 0; i < vertexIndices.size(); i++)
-        {
-            /// vertices
-            vertices.push_back(v[vertexIndices[i].x - 1].x);
-            vertices.push_back(v[vertexIndices[i].x - 1].y);
-            vertices.push_back(v[vertexIndices[i].x - 1].z);
 
-
-            vertices.push_back(v[vertexIndices[i].y - 1].x);
-            vertices.push_back(v[vertexIndices[i].y - 1].y);
-            vertices.push_back(v[vertexIndices[i].y - 1].z);
-
-            vertices.push_back(v[vertexIndices[i].z - 1].x);
-            vertices.push_back(v[vertexIndices[i].z - 1].y);
-            vertices.push_back(v[vertexIndices[i].z - 1].z);
-
-            /// texCords
-            texCoords.push_back(vt[uvIndices[i].x - 1].x);
-            texCoords.push_back(vt[uvIndices[i].x - 1].y);
-            texCoords.push_back(0);
-
-            texCoords.push_back(vt[uvIndices[i].y - 1].x);
-            texCoords.push_back(vt[uvIndices[i].y - 1].y);
-            texCoords.push_back(0);
-
-            texCoords.push_back(vt[uvIndices[i].z - 1].x);
-            texCoords.push_back(vt[uvIndices[i].z - 1].y);
-            texCoords.push_back(0);
-            
-
-            /// normals
-            normals.push_back(vn[normalIndices[i].x - 1].x);
-            normals.push_back(vn[normalIndices[i].x - 1].y);
-            normals.push_back(vn[normalIndices[i].x - 1].z);
-
-            normals.push_back(vn[normalIndices[i].y - 1].x);
-            normals.push_back(vn[normalIndices[i].y - 1].y);
-            normals.push_back(vn[normalIndices[i].y - 1].z);
-
-            normals.push_back(vn[normalIndices[i].z - 1].x);
-            normals.push_back(vn[normalIndices[i].z - 1].y);
-            normals.push_back(vn[normalIndices[i].z - 1].z);
-           
-        }
-    }
+    
     void loadTexture()
     {
         if (mltName != "")
@@ -158,38 +155,47 @@ private:
         else if (token == "v") {
             glm::vec3 vertex;
             stream >> vertex.x >> vertex.y >> vertex.z;
-            v.push_back(vertex);
+            vertices.push_back(new GLfloat[3]{ vertex.x,vertex.y,vertex.z });
         }
         else if (token == "vn")
         {
             glm::vec3 normal;
             stream >> normal.x >> normal.y >> normal.z;
-            vn.push_back(normal);
+            normals.push_back(new GLfloat[3]{ normal.x,normal.y,normal.z });
         }
         else if (token == "vt")
         {
             glm::vec2 uv;
             stream >> uv.x >> uv.y;
-            vt.push_back(uv);
+            texCoords.push_back(new GLfloat[2]{ uv.x,uv.y });
         }
         else if (token == "f")
         {
             std::string vertex1, vertex2, vertex3;
-            glm::uvec3 vertexIndex, uvIndex, normalIndex;
+            glm::uvec4 vertexIndex, uvIndex, normalIndex;
             glm::uvec3 tmp;
             char slash;
-            stream >>   vertexIndex.x >> slash >> uvIndex.x >> slash >> normalIndex.x >> 
-                        vertexIndex.y >> slash >> uvIndex.y >> slash >> normalIndex.y >> 
-                        vertexIndex.z >> slash >> uvIndex.z >> slash >> normalIndex.z;
-            
-            vertexIndices.push_back(glm::uvec3(vertexIndex.x, vertexIndex.y, vertexIndex.z));
-            uvIndices.push_back(glm::uvec3(uvIndex.x, uvIndex.y, uvIndex.z));
-            normalIndices.push_back(glm::uvec3(normalIndex.x, normalIndex.y, normalIndex.z));
-
+            if (!(stream >> vertexIndex.x >> slash >> uvIndex.x >> slash >> normalIndex.x >>
+                vertexIndex.y >> slash >> uvIndex.y >> slash >> normalIndex.y >>
+                vertexIndex.z >> slash >> uvIndex.z >> slash >> normalIndex.z >>
+                vertexIndex.w >> slash >> uvIndex.w >> slash >> normalIndex.w))
+            {
+                int* v = new int[3] { (int)vertexIndex.x - 1, (int)vertexIndex.y - 1, (int)vertexIndex.z - 1};
+                int* t = new int[3] { (int)uvIndex.x - 1, (int)uvIndex.y - 1, (int)uvIndex.z - 1};
+                faces.push_back(Face(3, v, t, normalIndex.x - 1));
+            }
+            else {
+                int* v = new int[4] { (int)vertexIndex.x - 1, (int)vertexIndex.y - 1, (int)vertexIndex.z - 1, (int)vertexIndex.w - 1};
+                int* t = new int[4] { (int)uvIndex.x - 1, (int)uvIndex.y - 1, (int)uvIndex.z - 1, (int)uvIndex.w - 1};
+                faces.push_back(Face(4, v, t, normalIndex.x - 1));
+            } 
         }
         else if (token == "mtllib")
         {
             stream >> mltName;
+            loadTexture();
         }
+       
     } 
+  
 };

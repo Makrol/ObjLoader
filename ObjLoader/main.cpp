@@ -1,79 +1,135 @@
-﻿#include <iostream>
-#define GLEW_STATIC
-#include <GL/glew.h>
+﻿#include <fstream>
+#include <math.h>
+#include <time.h>
+#include <vector>
+
 #include <GL/freeglut.h>
-#include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GL/GL.h>
 #include "Model.h"
-
 Model model;
-float angle = 0.0f;
+#define WIDTH 600
+#define HEIGHT 600
 
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+float cameraAngleX = 30.0f; // Początkowy kąt obrotu kamery wokół osi X
+float cameraAngleY = 0.0f;  // Początkowy kąt obrotu kamery wokół osi Y
+float cameraDistance = 20.0f;
+bool isMousePressed = false;
+int lastMouseX, lastMouseY;
 
-    glLoadIdentity();
-    gluLookAt(3.0, 3.0, 8.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+void handleMouse(int button, int state, int x, int y)
+{
+	if (button == GLUT_LEFT_BUTTON)
+	{
+		if (state == GLUT_DOWN)
+		{
+			isMousePressed = true;
+			lastMouseX = x;
+			lastMouseY = y;
+		}
+		else if (state == GLUT_UP)
+		{
+			isMousePressed = false;
+		}
+	}
+}
+void handleMouseWheel(int wheel, int direction, int x, int y)
+{
+	if (direction > 0) // Przybliżanie
+	{
+		cameraDistance -= 1.0f;
+		if (cameraDistance < 1.0f)
+			cameraDistance = 1.0f;
+	}
+	else if (direction < 0) // Oddalanie
+	{
+		cameraDistance += 1.0f;
+	}
 
-    // Automatyczne obracanie wokół obiektu
-    glRotatef(angle, 0.0f, 1.0f, 0.0f);
-    angle += 0.3f;
-
-    model.render();
-
-    glutSwapBuffers();
-    glutPostRedisplay();
+	glutPostRedisplay(); // Oznacz ekran do odświeżenia
 }
 
-void reshape(int w, int h) {
-    glViewport(0, 0, w, h);
+void handleMouseMove(int x, int y)
+{
+	if (isMousePressed)
+	{
+		int deltaX = x - lastMouseX;
+		int deltaY = y - lastMouseY;
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0, (double)w / h, 1.0, 10.0);
+		cameraAngleY += deltaX * 0.5f;
+		cameraAngleX += deltaY * 0.5f;
 
-    glMatrixMode(GL_MODELVIEW);
+		lastMouseX = x;
+		lastMouseY = y;
+
+		glutPostRedisplay(); // Oznacz ekran do odświeżenia
+	}
 }
-void config() {
-    glEnable(GL_DEPTH_TEST);
-
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-
-    GLfloat light_position[] = { 1.0, 1.0, 1.0, 0.0 };
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    GLfloat ambient[] = { 0.2, 0.2, 0.2, 1.0 };
-    GLfloat diffuse[] = { 0.8, 0.8, 0.8, 1.0 };
-    GLfloat specular[] = { 1.0, 1.0, 1.0, 1.0 };
-
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-
-    glEnable(GL_COLOR_MATERIAL);
-    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+void init() {
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	GLfloat light_pos[] = { -1.0f,10.0f,100.0f,1.0f };
+	glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
+	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(20.0, 1.0, 1.0, 2000.0);
+	glMatrixMode(GL_MODELVIEW);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_LINE_SMOOTH);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_DEPTH_TEST);
 }
-int main(int argc, char** argv) {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutCreateWindow("Textured Cube Example");
+void display()
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
+	glTranslatef(0.0f, 0.0f, -cameraDistance);
+	glRotatef(cameraAngleX, 1.0f, 0.0f, 0.0f);
+	glRotatef(cameraAngleY, 0.0f, 1.0f, 0.0f);
+	model.draw();
+	glutSwapBuffers();
+}
+void reshape(int width, int height)
+{
+	if (height == 0)
+		height = 1;
 
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        fprintf(stderr, "GLEW initialization error: %s\n", glewGetErrorString(err));
-        return -1;
-    }
+	float aspectRatio = (float)width / height;
 
-    config();
-    
-    
-    model.loadFile("Mug.obj");
+	glViewport(0, 0, width, height);
 
-    glutDisplayFunc(display);
-    glutReshapeFunc(reshape);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
 
-    glutMainLoop();
-
-    return 0;
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glTranslatef(0.0f, 0.0f, -20.0f);
+}
+int main(int argc, char** argv)
+{
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_MULTISAMPLE);
+	glEnable(GLUT_MULTISAMPLE);
+	//glHint(GLUT_)
+	glutSetOption(GLUT_MULTISAMPLE, 8);
+	int POS_X = (glutGet(GLUT_SCREEN_WIDTH) - WIDTH) >> 1;
+	int POS_Y = (glutGet(GLUT_SCREEN_HEIGHT) - HEIGHT) >> 1;
+	glutInitWindowPosition(POS_X, POS_Y);
+	glutInitWindowSize(WIDTH, HEIGHT);
+	glutCreateWindow("Load Model");
+	init();
+	model.loadFile("Mug.obj");
+	glutDisplayFunc(display);
+	glutMouseFunc(handleMouse);
+	glutMouseWheelFunc(handleMouseWheel);
+	glutMotionFunc(handleMouseMove);
+	glutReshapeFunc(reshape);
+	glutMainLoop();
+	return 0;
 }

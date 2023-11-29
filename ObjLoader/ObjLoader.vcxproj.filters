@@ -21,9 +21,17 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="simple-shader.frag" />
+    <None Include="simple-shader.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Face.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

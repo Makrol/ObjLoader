@@ -144,9 +144,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="simple-shader.frag" />
+    <None Include="simple-shader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Face.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
