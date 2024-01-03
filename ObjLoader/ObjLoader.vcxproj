@@ -144,8 +144,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="simple-shader.frag" />
-    <None Include="simple-shader.vert" />
+    <None Include="shader.frag" />
+    <None Include="shader.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Face.h" />

@@ -9,8 +9,12 @@
 #include <cmath>
 #include <soil.h>
 #include "Face.h"
+#include <glm/gtc/type_ptr.hpp>
+#define WIDTH 600
+#define HEIGHT 600
+
 class Model{
-private:
+public:
     std::vector< GLint> vertexIndices;
     std::vector< GLint> uvIndices;
     std::vector< GLint> normalIndices;
@@ -19,6 +23,8 @@ private:
     std::vector<GLfloat*> normals;
     std::vector<GLfloat*> texCoords;
     
+    std::vector<GLfloat> verticesVec;
+
     std::string mltName="";
     GLuint textureID;
     
@@ -27,7 +33,7 @@ private:
 
 public:
 
-	void loadFile(std::string fileName) {
+	void loadFile(std::string fileName, GLuint shaderProgram,float cameraDistance) {
 
         std::string myText;
 
@@ -43,7 +49,9 @@ public:
         std::cout << "Normals:" << normals.size() << std::endl;
         std::cout << "Faces:" << faces.size() << std::endl;
         list = glGenLists(1);
-        glNewList(list, GL_COMPILE);
+        /*glNewList(list, GL_COMPILE);
+       
+
         for (Face& face : faces)
         {
             if (face.normal != -1)
@@ -65,6 +73,7 @@ public:
                     {
                         glTexCoord2fv(texCoords[face.texCords[i]]);
                     }
+                    verticesVec.push_back(*vertices[face.vertices[i]]);
                     glVertex3fv(vertices[face.vertices[i]]);
                 }
                 glEnd();
@@ -82,11 +91,12 @@ public:
             if (face.normal == -1)
                 glEnable(GL_LIGHTING);
         }
-        glEndList();
+        //glUseProgram(0);
+        glEndList();*/
 
        
 
-        for (GLfloat* f : vertices)
+       /* for (GLfloat* f : vertices)
             delete f;
         vertices.clear();
 
@@ -96,14 +106,55 @@ public:
 
         for (GLfloat* f : normals)
             delete f;
-        normals.clear();
+        normals.clear();*/
 
         
 
 	}
 
     void draw() {
-        glCallList(list);
+        //glCallList(list);
+        glEnable(GL_COLOR_MATERIAL);
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+        for (Face& face : faces)
+        {
+            if (face.normal != -1)
+            {
+                glNormal3fv(normals[face.normal]);
+            }
+            else
+            {
+                glDisable(GL_LIGHTING);
+            }
+            if (textureID != 0)
+            {
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, textureID);
+                glBegin(GL_POLYGON);
+                for (int i = 0; i < face.edge; i++)
+                {
+                    if (face.texCords[i] != -1)
+                    {
+                        glTexCoord2fv(texCoords[face.texCords[i]]);
+                    }
+                    verticesVec.push_back(*vertices[face.vertices[i]]);
+                    glVertex3fv(vertices[face.vertices[i]]);
+                }
+                glEnd();
+
+            }
+            else {
+                glBegin(GL_POLYGON);
+                for (int i = 0; i < face.edge; i++)
+                {
+
+                    glVertex3fv(vertices[face.vertices[i]]);
+                }
+                glEnd();
+            }
+            if (face.normal == -1)
+                glEnable(GL_LIGHTING);
+        }
     }
 
 private:
