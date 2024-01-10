@@ -11,104 +11,101 @@ Model model;
 #define HEIGHT 600
 float cameraRotationX = 30.0f;
 float cameraRotationY = 0.0f;
-float cameraAngleX = 30.0f; // Początkowy kąt obrotu kamery wokół osi X
-float cameraAngleY = 0.0f;  // Początkowy kąt obrotu kamery wokół osi Y
+float cameraAngleX = 30.0f; 
+float cameraAngleY = 0.0f;  
 float cameraDistance = 20.0f;
 bool isMousePressed = false;
 int lastMouseX, lastMouseY;
+float zoomFactor = 1.0f;
 
-const char* vertexShaderSource = R"(
-    #version 330 core
-layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec2 inTexCoord;
-layout(location = 2) in vec3 inNormal; // Dodaj nowy atrybut dla normalnych
-out vec2 TexCoord;
-out vec3 FragNormal; // Przekaż normalne do shadera fragmentów
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(inPos, 1.0);
-    TexCoord = inTexCoord;
-    FragNormal = mat3(transpose(inverse(model))) * inNormal; // Przekaż normalne do shadera fragmentów
-}
-)";
-
-const char* fragmentShaderSource = R"(
-    #version 330 core
-	in vec2 TexCoord;
-	in vec3 FragNormal; // Przekaż normalne z shadera wierzchołków
-	out vec4 FragColor;
-	uniform vec3 lightPos; // Uwzględnij pozycję światła
-
-	void main() {
-		vec3 lightDir = normalize(lightPos - FragPos);
-		float diff = max(dot(normalize(FragNormal), lightDir), 0.0);
-
-		// Modyfikuj kolor fragmentu na podstawie oświetlenia
-		vec4 color = vec4(1.0, 0.0, 0.0, 1.0); // Zawsze czerwony kolor
-		color.rgb *= diff; // Uwzględnij oświetlenie difuzji
-
-		FragColor = color;
-	}
-)";
-
-GLuint shaderProgram;
-
-void handleMouse(int button, int state, int x, int y)
-{
-	if (button == GLUT_LEFT_BUTTON)
-	{
-		if (state == GLUT_DOWN)
-		{
+void mouseButton(int button, int state, int x, int y) {
+	if (button == GLUT_LEFT_BUTTON) {
+		if (state == GLUT_DOWN) {
 			isMousePressed = true;
 			lastMouseX = x;
 			lastMouseY = y;
 		}
-		else if (state == GLUT_UP)
-		{
+		else if (state == GLUT_UP) {
 			isMousePressed = false;
 		}
 	}
 }
-void handleMouseWheel(int wheel, int direction, int x, int y)
-{
-	if (direction > 0) // Przybliżanie
-	{
-		cameraDistance -= 1.0f;
-		if (cameraDistance < 1.0f)
-			cameraDistance = 1.0f;
+
+void mouseWheel(int button, int dir, int x, int y) {
+	if (dir > 0) {
+		zoomFactor += 0.1f; 
 	}
-	else if (direction < 0) // Oddalanie
-	{
-		cameraDistance += 1.0f;
+	else if (dir < 0 && zoomFactor > 0.1f) {
+		zoomFactor -= 0.1f; 
 	}
 
-	glutPostRedisplay(); // Oznacz ekran do odświeżenia
+	glutPostRedisplay();
 }
 
-void handleMouseMove(int x, int y)
-{
-	if (isMousePressed)
-	{
+void mouseMotion(int x, int y) {
+	if (isMousePressed) {
 		int deltaX = x - lastMouseX;
 		int deltaY = y - lastMouseY;
 
-		cameraRotationY += deltaX * 0.5f;
-		cameraRotationX += deltaY * 0.5f;
+		cameraRotationX += deltaY * 0.1f;
+		cameraRotationY += deltaX * 0.1f;
 
 		lastMouseX = x;
 		lastMouseY = y;
 
-		glutPostRedisplay(); // Oznacz ekran do odświeżenia
+		glutPostRedisplay();
 	}
 }
+
+
+const char* vertexShaderSource = R"(
+	#version 330 core
+	layout(location = 0) in vec3 inPos;
+	layout(location = 1) in vec3 inNormal;
+	layout(location = 2) in vec2 inTexCoord;
+
+	out vec2 TexCoord;
+	out vec3 FragNormal;
+	out vec3 FragPos;
+	uniform mat4 model;
+	uniform mat4 view;
+	uniform mat4 projection;
+
+	void main() {
+		gl_Position = projection * view * model * vec4(inPos, 1.0);
+		TexCoord = inTexCoord;
+		FragNormal = mat3(transpose(inverse(model))) * inNormal;
+		FragPos = vec3(model * vec4(inPos, 1.0));
+	}
+)";
+
+const char* fragmentShaderSource = R"(
+    #version 330 core
+    in vec2 TexCoord;
+    in vec3 FragNormal;
+    in vec3 FragPos;
+    out vec4 FragColor;
+    uniform vec3 lightDir;
+    uniform sampler2D textureSampler;
+
+    void main() {
+        vec3 lightDir = normalize(lightDir);
+        float diff = max(dot(normalize(FragNormal), -lightDir), 0.0);
+
+        vec4 textureColor = texture(textureSampler, TexCoord);
+
+        vec4 color = textureColor;
+        color.rgb *= diff;
+
+        FragColor = color;
+    }
+)";
+
+GLuint shaderProgram;
+
+
 void init() {
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	GLfloat light_pos[] = { -1.0f,-1.0f,-1.0f,.0f };
-	glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
+
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -123,11 +120,50 @@ void init() {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_COLOR_MATERIAL);
-	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 }
+GLuint vbo = 0;
+GLuint tbo = 0;
+GLuint nbo = 0;
+GLuint ObjectVAO;
+GLuint MatMVPLoc;
 void initShader()
 {
+	glEnable(GL_DEPTH_TEST);
+
+	// Wygenerowanie bufor�w z wierzcho�kami i kolorami i skopiowanie danych:
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * model.verticesOut.size(), model.verticesOut.data(), GL_STATIC_DRAW);
+	// Analogiczny bufor z normal:
+
+	glGenBuffers(1, &nbo);
+	glBindBuffer(GL_ARRAY_BUFFER, nbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * model.normalsOut.size(), model.normalsOut.data(), GL_STATIC_DRAW);
+
+
+	glGenBuffers(1, &tbo);
+	glBindBuffer(GL_ARRAY_BUFFER, tbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * model.texCoordsOut.size(), model.texCoordsOut.data(), GL_STATIC_DRAW);
+
+	// Przygotowanie VAO:
+	glGenVertexArrays(1, &ObjectVAO);
+	glBindVertexArray(ObjectVAO);
+	// Index 0 -> wierzcho�ki:
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	// Index 1 -> normal:
+	glBindBuffer(GL_ARRAY_BUFFER, nbo);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	glBindBuffer(GL_ARRAY_BUFFER, tbo);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	// Odblokowanie atrybut�w nr 0 i 1:
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
 	glCompileShader(vertexShader);
@@ -153,6 +189,7 @@ void initShader()
 		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
 		std::cerr << "Fragment shader compilation failed:\n" << infoLog << std::endl;
 	}
+	////////////////////////////////////////////////////////////////////////////////////////
 
 	// Stworzenie programu shaderowego i przypisanie shaderów
 	shaderProgram = glCreateProgram();
@@ -167,33 +204,48 @@ void initShader()
 		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
 		std::cerr << "Shader program linking failed:\n" << infoLog << std::endl;
 	}
-
-	// Usunięcie nieużywanych shaderów
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
+	glUseProgram(shaderProgram);
 }
 void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glLoadIdentity();
-	glTranslatef(0.0f, 0.0f, -cameraDistance);
-	glRotatef(cameraRotationX, 1.0f, 0.0f, 0.0f);
-	glRotatef(cameraRotationY, 0.0f, 1.0f, 0.0f);
+
 	glUseProgram(shaderProgram);
 
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));  // Ustawienie jednostkowej macierzy jako model
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+
+	glm::mat4 viewMatrix = glm::lookAt(glm::vec3(0.0f, 0.0f, cameraDistance * zoomFactor),
+		glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3(0.0f, 1.0f, 0.0f));
+
+	viewMatrix = glm::rotate(viewMatrix, glm::radians(cameraRotationX), glm::vec3(1.0f, 0.0f, 0.0f));
+	viewMatrix = glm::rotate(viewMatrix, glm::radians(cameraRotationY), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(lookAt(glm::vec3(0.0f, 0.0f, cameraDistance), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f))));  // Ustawienie macierzy view
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewMatrix));
 
 	GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(glm::perspective(glm::radians(45.0f), (float)WIDTH / HEIGHT, 0.1f, 100.0f)));  // Ustawienie macierzy projekcji
-	model.draw();
-	glUseProgram(0);
-	
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE,
+		glm::value_ptr(glm::perspective(glm::radians(45.0f), (float)WIDTH / HEIGHT, 0.1f, 100.0f)));
+
+	GLint textureLoc = glGetUniformLocation(shaderProgram, "textureSampler");
+	glUniform1i(textureLoc, 0);
+
+	glBindTexture(GL_TEXTURE_2D, model.textureID);
+
+	GLuint lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
+	glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, 1.0f, -1.0f));  
+	glUniform3fv(lightDirLoc, 1, glm::value_ptr(lightDir));
+
+	glBindVertexArray(ObjectVAO);
+	glDrawArrays(GL_TRIANGLES, 0, model.verticesOut.size() / 3);
+	glBindVertexArray(0);
+
 	glutSwapBuffers();
 }
+
 void reshape(int width, int height)
 {
 	if (height == 0)
@@ -226,13 +278,14 @@ int main(int argc, char** argv)
 	glutCreateWindow("Load Model");
 	init();
 	glewInit();
+	model.loadFile("mug.obj", shaderProgram, cameraDistance);
 	initShader();
-	model.loadFile("Mug.obj",shaderProgram,cameraDistance);
+	
 	glutDisplayFunc(display);
-	glutMouseFunc(handleMouse);
-	glutMouseWheelFunc(handleMouseWheel);
-	glutMotionFunc(handleMouseMove);
 	glutReshapeFunc(reshape);
+	glutMouseFunc(mouseButton);
+	glutMotionFunc(mouseMotion);
+	glutMouseWheelFunc(mouseWheel);
 	glutMainLoop();
 	return 0;
 }
